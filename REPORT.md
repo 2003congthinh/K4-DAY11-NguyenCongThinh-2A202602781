@@ -28,7 +28,7 @@ Mỗi kiểu bạn tìm thấy: một ảnh chụp trình xem 3D (chương 9) �
 
 ## 6. Sửa planner (bước E + 3D)
 
-`fix.json`: policy được chọn, `fail` và `fail_hi` trên TRAIN, trên TEST, và của policy gốc trên TEST; quãng đường và số lần phanh gấp. Một ảnh chụp 3D có **bóng mờ** (policy gốc) cho một kịch bản mà bản sửa tránh được. Có núm chỉnh nào "nghe thì an toàn hơn" nhưng thực tế làm tăng thất bại? Giải thích bằng cách thế giới phản ứng lại.
+`fix.json`: policy được chọn, `fail` và `fail_hi` trên TRAIN, trên TEST (`fail_hi_seen` và `fail_hi`), và của policy gốc trên TEST; vì sao `fail_hi` của bản sửa có thể lớn hơn `fail` của policy gốc dù bản sửa tốt hơn thật? quãng đường và số lần phanh gấp. Một ảnh chụp 3D có **bóng mờ** (policy gốc) cho một kịch bản mà bản sửa tránh được. Có núm chỉnh nào "nghe thì an toàn hơn" nhưng thực tế làm tăng thất bại? Giải thích bằng cách thế giới phản ứng lại.
 
 ## 7. Từ mô phỏng ra đường thật
 

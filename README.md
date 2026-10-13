@@ -80,6 +80,8 @@ Mẫu TRAIN được rút ở nơi **policy gốc** thất bại. Một policy m
 - **mọi** va chạm khác của xe ta (cắt làn, bị tông đuôi, `other`), đếm trên một tập tự nhiên riêng, cộng vào `fail` và `fail_hi`: một policy chỉ dời thất bại sang kiểu không ai săn sẽ không trông an toàn;
 - quãng đường tính **đến lúc va chạm**, không tính phần xe "chạy tiếp" sau đó.
 
+Vì thế TEST có hai con số. `fail_hi_seen` chỉ cộng các kiểu có va chạm: đó là cái dữ liệu cho thấy. `fail_hi` là cận trên 95 % **hợp lệ** cho cả policy: nếu bản sửa xoá hẳn một kiểu, cận của kiểu đó vẫn là 3/(0,2·n), khoảng 15/n. Với n = 400, không ngân sách nào ở lab này chứng nhận được một kiểu đã biến mất dưới 10⁻². Đó là bài học, không phải lỗi: muốn chứng nhận p < 10⁻³ thì cần cỡ 15 000 lần chạy trên đúng chỗ đó.
+
 Grader chạy lại TEST với một seed bí mật, nên chọn ứng viên theo số TEST công khai không có lợi.
 
 Gợi ý: không phải núm nào "an toàn hơn" cũng an toàn hơn. Thế giới phản ứng lại policy của bạn.
