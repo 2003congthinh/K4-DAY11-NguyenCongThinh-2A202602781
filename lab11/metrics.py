@@ -18,8 +18,10 @@ def min_ttc(R: core.Rollout, cap: float = 10.0) -> np.ndarray:
     """TODO 1. (K,) smallest time-to-collision between the ego and whatever it is following, capped at `cap` s.
 
     - The ego's leader at frame f is R.EGO[k, f, 3] (an actor index, -1 = nothing ahead).
-    - Gap is bumper to bumper along the ego's heading: lon - 2.3 - (leader length / 2);
-      use 0.3 m as the half-length of a pedestrian. Clip the gap at 0.
+    - Gap is bumper to bumper along the ego's heading: lon - 2.3 - (leader length / 2), where
+      lon = (x_leader - x_ego) * hx_ego + (z_leader - z_ego) * hz_ego (the leader's position seen from the ego) and
+      2.3 is half the ego's length. Leader length: core.LEN[j] for actor j; use 0.3 m as the half-length of a
+      pedestrian. Clip the gap at 0.
     - TTC = gap / (v_ego - v_leader), only while the ego is closing in by more than 0.1 m/s.
     - A scenario where the ego crashed (see ego_events) returns 0.
     Shapes: R.F is (K, NF, N, 7) with x, z, hx, hz, v, a, d; core.IX["ego"] is the ego's actor index.

@@ -11,7 +11,8 @@ from avsim import space
 def cem_update(Z, Bn, score, prev: dict, rho: float = 0.1, smooth: float = 0.7, min_std: float = 0.25,
                p_clip=(0.03, 0.97)) -> dict:
     """TODO 5. One cross-entropy step. Keep the elite = the top ceil(rho * n) rows by score (at least 2;
-    higher score = more dangerous), then return a new proposal dict:
+    higher score = more dangerous; on equal scores the earlier row wins, i.e. np.argsort(-score, kind="stable")),
+    then return a new proposal dict:
 
       mean  = smooth * elite mean + (1 - smooth) * prev["mean"]           (per continuous coordinate)
       std   = max(min_std, smooth * elite std + (1 - smooth) * prev["std"])

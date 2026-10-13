@@ -32,7 +32,7 @@ python -m pytest -q tests/test_todos.py    # 31 test, đỏ hết cho đến khi
 python run_all.py world                    # kiểm tra lõi mô phỏng (không cần TODO nào)
 ```
 
-**Trình xem 3D** đi kèm lab: mở `viewer/index.html` bằng trình duyệt (chạy offline, không cần mạng).
+**Trình xem 3D** đi kèm lab: mở `viewer/index.html` bằng trình duyệt (chạy offline, không cần mạng). `tests/test_parity.py` mất 20–90 s và không in gì trong lúc chạy: chờ, nó không treo.
 
 ## Các bước
 
@@ -45,12 +45,12 @@ python run_all.py world                    # kiểm tra lõi mô phỏng (không
 | C2 | `run_all.py hunt` | `search.cem_update`, `modes.label_mode` | `hunt.json`, `cloud.json`: một cuộc săn CEM cho mỗi kiểu thất bại |
 | C3 | `run_all.py estimate` | `estimate.log_weights`, `estimate.is_estimate` | `estimate.json`: importance sampling theo từng kiểu, 3 seed |
 | E | `run_all.py fix` | `metrics.progress_metrics`, `policy.choose_policy` | `fix.json`: chỉnh trên TRAIN, báo cáo trên TEST |
-| G | `run_all.py mine hazard.json` | — (bạn thiết kế) | `mine.json`: rắc rối của bạn, quét trên cả dải, so policy gốc với bản sửa |
+| G | `run_all.py mine hazard.json` | — (bạn thiết kế; cần TODO 3, 4 đã xong) | `mine.json`: rắc rối của bạn, quét trên cả dải, so policy gốc với bản sửa |
 | F | `run_all.py export` | — | `viewer.json`: mở trong trình xem 3D, chương 9 |
 
-Mỗi bước đọc bằng chứng của bước trước: `estimate` cần `hunt` (và `mc` cho phần va chạm không thuộc kiểu nào), `fix` và `export` cần `hunt`, `mine` dùng policy đã chọn ở `fix` nếu có. Một bước chạy được ngay cả khi TODO của bước sau chưa xong; trường nào cần TODO chưa làm thì để trống và có cảnh báo.
+Mỗi bước đọc bằng chứng của bước trước: `estimate` cần `hunt` (và `mc` cho phần va chạm không thuộc kiểu nào), `fix` và `export` cần `hunt`, `mine` dùng policy đã chọn ở `fix` nếu có. Thiếu file thì lệnh dừng và nói cần chạy bước nào trước. Một bước cần TODO chưa làm thì dừng với một dòng nói TODO nào; riêng `replay` vẫn chạy và để trống các trường cần TODO 1, 2, 9 (kèm cảnh báo; con số khi đó chưa có nghĩa).
 
-`python run_all.py all` chạy hết (gồm G nếu có `hazard.json`), khoảng 9 phút trên laptop M-series, 20 phút trên Colab. Thêm `--quick` khi đang thử (ngân sách nhỏ, **không** dùng để nộp).
+`python run_all.py all` chạy hết (gồm G nếu có `hazard.json`), khoảng 9 phút trên laptop M-series rảnh, 25 phút nếu máy đang bận việc khác (bước `fix` dài nhất, 3–10 phút), lâu hơn trên Colab. Chạy từng bước một nếu terminal của bạn có giới hạn thời gian. Thêm `--quick` khi đang thử (ngân sách nhỏ, **không** dùng để nộp).
 
 Gợi ý thời gian: A + B 40 phút · C1 + C2 60 phút · C3 + xem 3D 40 phút · E 35 phút · G 40 phút · báo cáo viết dần trong lúc chờ máy chạy.
 
@@ -69,7 +69,7 @@ Cùng một kịch bản, ba cách: người lái thật (log), planner trên **
 Ba cái bẫy bạn sẽ gặp và phải báo cáo:
 
 1. CEM **co về một kiểu**: săn mãi một chỗ. Vì thế mỗi kiểu có một cuộc săn riêng.
-2. Săn càng lâu, q càng hẹp. Ước lượng vẫn không chệch về lý thuyết, nhưng thường bị **thấp**: một vài mẫu nặng ký quyết định cả con số. `top_share` (phần ước lượng do một mẫu nặng nhất mang) cho bạn biết khi nào điều đó xảy ra. Vì vậy ước lượng dùng **đề xuất đầu tiên** mà elite đã toàn là va chạm. Kể cả vậy, ở ngân sách này con số thường thấp hơn sự thật khoảng 1,5–2 lần.
+2. Săn càng lâu, q càng hẹp. Ước lượng vẫn không chệch về lý thuyết, nhưng thường bị **thấp**: một vài mẫu nặng ký quyết định cả con số. `top_share` (phần ước lượng do một mẫu nặng nhất mang) cho bạn biết khi nào điều đó xảy ra. Vì vậy ước lượng dùng **đề xuất đầu tiên** mà elite đã toàn là va chạm. Kể cả vậy, ở ngân sách này con số thường thấp hơn sự thật khoảng 1,5–4 lần, và các seed có thể chênh nhau vài lần.
 3. Cuộc săn tìm ra **một** cách va chạm, không nhất thiết là cách **hay xảy ra nhất**. Điểm nguy hiểm kéo q về chỗ va chạm dễ nhất, và chỗ đó có thể rất hiếm ngoài đời. Nếu hai seed cho dart-out chênh nhau hàng chục lần, hoặc Monte Carlo thấy một vụ mà IS bảo cỡ 10⁻⁶, đó là dấu hiệu.
 
 ### E · Sửa planner, kiểm tra trung thực
@@ -86,6 +86,8 @@ Vì thế TEST có hai con số. `fail_hi_seen` chỉ cộng các kiểu có va 
 
 Grader chạy lại TEST với một seed bí mật, nên chọn ứng viên theo số TEST công khai không có lợi.
 
+Một cái bẫy của TRAIN: ứng viên mà mọi kiểu đều `unseen` có `fail_hi` = 0 trên TRAIN, nên `choose_policy` thích nó, kể cả khi nó chạy nhanh hơn và nguy hiểm hơn. TEST sẽ lộ ra (cận của kiểu `unseen` là 3/(0,2·n)). Vì vậy đừng thêm ứng viên chỉ để thắng TRAIN.
+
 Gợi ý: không phải núm nào "an toàn hơn" cũng an toàn hơn. Thế giới phản ứng lại policy của bạn.
 
 ### F · Xem trong 3D
@@ -98,7 +100,7 @@ Gợi ý: không phải núm nào "an toàn hơn" cũng an toàn hơn. Thế gi�
 
 Chụp màn hình cho báo cáo (câu 5, câu 6), như ảnh dưới: kéo thanh thời gian đến đúng lúc va chạm rồi mới chụp.
 
-![Chương 9: "người lao ra", người đi bộ bước ra từ sau xe buýt đỗ, xe ta không kịp thấy](images/ch9-lab-dart-out.jpg)
+![Chương 9: kiểu "người lao ra": người đi bộ bước ra từ sau xe buýt đỗ; xe ta phanh gấp và dừng, nhưng mũi xe đã nằm trên lối đi của người](images/ch9-lab-dart-out.jpg)
 
 ### G · Rắc rối của bạn (xưởng kịch bản, chương 10)
 
@@ -114,7 +116,7 @@ Các cuộc săn ở bước C chỉ tìm trong những gì thế giới đã c�
 2. **Dựng** nó trong chương 10. Thử đến khi planner va chạm hoặc suýt va chạm. Bấm **"Bạn"** để tự lái và so với planner (nhớ rằng bạn đã xem lại cảnh nhiều lần, planner thì không). **Tải hazard.json** (hoặc Sao chép) vào thư mục lab.
    ![Chương 10, xưởng kịch bản: bốn nút thêm rắc rối, và thẻ H0 (một xe đạp lạng ra) đang chỉnh bằng thanh trượt](images/ch10-studio.jpg)
 
-3. **Mở `hazard.json` và thêm ba trường bằng tay:**
+3. **Mở `hazard.json` (file tải từ chương 10: đã có sẵn `format`, `params`, `policy`, `hazards`; đừng xoá) và thêm ba trường bằng tay:**
 
    ```json
    "space": {"h0_x": [-150, 250], "h0_swerve": [0.6, 1.8], "h0_trig": [10, 40]},

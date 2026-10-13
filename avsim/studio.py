@@ -164,9 +164,9 @@ def fire_frames(R: core.Rollout, params=None):
 def blame(R: core.Rollout, k, ff=None):
     """Which hazard a scenario's first ego collision belongs to.
 
-    i      = hazard i: the ego hit it, or hit the car it made brake, or it had already acted when the ego crashed;
-    -1     = unattributed: no hazard had acted before the contact (an ordinary crash of this town, or the hazard
-             fired after the ego was already in trouble), so the crash says nothing about this hazard;
+    i      = hazard i: it had started acting before the contact AND the ego hit it (or hit the car it made brake);
+    -1     = unattributed: the ego hit something else, or the hazard had not acted yet (an ordinary crash of this
+             town, e.g. a bus bypass while your bike rode 200 m away), so the crash says nothing about the hazard;
     None   = no ego collision.
     """
     ev = [e for e in R.events[k] if "ego" in (e["a"], e["b"])]
@@ -179,7 +179,7 @@ def blame(R: core.Rollout, k, ff=None):
         h = R.hazards[i]
         if other == f"H{i}" or (h["type"] == "brake" and other == h["who"]):
             return i
-    return min(acted, key=lambda i: ff[k, i]) if acted else -1
+    return -1
 
 
 def oracle_avoids(params, R: core.Rollout, hazards, policy=None):
