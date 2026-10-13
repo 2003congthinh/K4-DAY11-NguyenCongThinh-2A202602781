@@ -9,6 +9,8 @@ Bạn là kỹ sư kiểm thử của một đội xe tự lái. Planner của �
 3. **Sửa planner thì có thật sự đỡ hơn không**, hay chỉ đỡ trên đúng những kịch bản bạn đã nhìn?
 4. **Rắc rối nào chưa ai nghĩ tới?** Bạn tự dựng một tình huống mới, rồi đo xem nó nguy hiểm đến đâu.
 
+![Trình xem 3D, chương 9: một va chạm "lách qua xe buýt" do cuộc săn CEM tìm ra, chạy lại đúng lúc va chạm](images/ch9-lab-bus-bypass.jpg)
+
 Mọi thứ bạn tìm thấy bằng Python đều xem lại được trong **trình xem 3D**: chương 9 "phòng lab" chạy lại từng kịch bản bằng chính lõi mô phỏng này, khớp từng bit với Python. Chương 10 "xưởng kịch bản" cho bạn tự thêm rắc rối, chỉnh thế giới và planner, hoặc tự cầm lái.
 
 ## Thế giới
@@ -94,7 +96,9 @@ Gợi ý: không phải núm nào "an toàn hơn" cũng an toàn hơn. Thế gi�
 - danh sách bên dưới là các va chạm bạn lưu theo từng kiểu;
 - **bóng mờ** là xe ta với policy gốc trên cùng kịch bản, để thấy bản sửa của bạn thay đổi gì.
 
-Chụp màn hình cho báo cáo (câu 5, câu 6).
+Chụp màn hình cho báo cáo (câu 5, câu 6), như ảnh dưới: kéo thanh thời gian đến đúng lúc va chạm rồi mới chụp.
+
+![Chương 9: "người lao ra", người đi bộ bước ra từ sau xe buýt đỗ, xe ta không kịp thấy](images/ch9-lab-dart-out.jpg)
 
 ### G · Rắc rối của bạn (xưởng kịch bản, chương 10)
 
@@ -108,6 +112,8 @@ Các cuộc săn ở bước C chỉ tìm trong những gì thế giới đã c�
 
    Mỗi rắc rối có thể đợi **đến khi xe ta còn cách N mét** mới xảy ra. Chọn cái bạn tin planner xử lý kém, và nói vì sao.
 2. **Dựng** nó trong chương 10. Thử đến khi planner va chạm hoặc suýt va chạm. Bấm **"Bạn"** để tự lái và so với planner (nhớ rằng bạn đã xem lại cảnh nhiều lần, planner thì không). **Tải hazard.json** (hoặc Sao chép) vào thư mục lab.
+   ![Chương 10, xưởng kịch bản: bốn nút thêm rắc rối, và thẻ H0 (một xe đạp lạng ra) đang chỉnh bằng thanh trượt](images/ch10-studio.jpg)
+
 3. **Mở `hazard.json` và thêm ba trường bằng tay:**
 
    ```json
