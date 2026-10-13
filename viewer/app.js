@@ -937,7 +937,7 @@
 
   // ---------------------------------------------------------------- chapter 9: the lab's own runs, re-simulated here
   var LAB = { data: null, src: "", cur: null, ghost: null, sel: -1, xi: 0, yi: 1 };
-  var LAB_LABEL = { bus_bypass: "lách qua xe buýt", cut_in: "cắt làn gấp", dart_out: "người lao ra", rear_ended: "bị tông đuôi", other: "khác", mine: "rắc rối của bạn" };
+  var LAB_LABEL = { bus_bypass: "lách qua xe buýt", cut_in: "cắt làn gấp", dart_out: "người lao ra", rear_ended: "bị tông đuôi", other: "khác", mine: "rắc rối của bạn", replay: "chỉ va chạm khi phát lại log" };
   var LAB_OUT = { crash: "red", near: "gold", safe: "grey", infeasible: "grey" };
   function labValidate(d) {
     if (!d || d.format !== "avsim-viewer/1") throw new Error("File không phải avsim-viewer/1 (thiếu trường format).");

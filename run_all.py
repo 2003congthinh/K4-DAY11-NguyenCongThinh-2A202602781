@@ -59,12 +59,20 @@ def save(name, obj):
     print(f"  -> evidence/{name}.json")
 
 
+NEEDS = dict(world="world", replay="replay", mc="mc", hunt="hunt", estimate="hunt", fix="hunt", export="hunt",
+             cloud="hunt", estimate_mc="mc")
+
+
 def load(name):
-    with open(os.path.join(EVID, name + ".json"), encoding="utf-8") as f:
+    path = os.path.join(EVID, name + ".json")
+    if not os.path.exists(path):
+        sys.exit(f"evidence/{name}.json is missing: run `python run_all.py {NEEDS.get(name, name)}` first.")
+    with open(path, encoding="utf-8") as f:
         return json.load(f)
 
 
 _WARNED = set()
+USED_IN = dict(min_ttc="replay", contact_type="replay", progress_metrics="fix", label_mode="hunt", is_feasible="every step")
 
 
 def _todo(fn, *args, default=None):
@@ -74,7 +82,8 @@ def _todo(fn, *args, default=None):
     except NotImplementedError as e:
         if fn.__name__ not in _WARNED:
             _WARNED.add(fn.__name__)
-            print(f"  (skipping {fn.__name__}: {e}; fields that need it are left empty)")
+            print(f"  (skipping {fn.__name__}: {e}; fields that need it are left empty. Only a problem in the step "
+                  f"that needs it: {USED_IN.get(fn.__name__, 'see README')})")
         return default
 
 
@@ -175,7 +184,10 @@ def step_replay(a, nat, seeds):
     both = sum(1 for x, y in zip(rep, rea) if x["crash"] and y["crash"])
     out = dict(n=len(params), dropped_human_crash_logs=len(params) - len(keep), n_used=len(ps),
                replay=tally(rep), reactive=tally(rea), crash_in_both=both,
-               replay_only=[keep[i] for i, (x, y) in enumerate(zip(rep, rea)) if x["crash"] and not y["crash"]][:20])
+               # crashes that exist only against the replayed log: what hit what, and the scenario itself (the viewer's
+               # chapter 9 plays the first three of them with others="replay" after `export`)
+               replay_only=[dict(scenario=keep[i], contact=x["contact"], min_ttc_reactive=y["ttc"], params=ps[i])
+                            for i, (x, y) in enumerate(zip(rep, rea)) if x["crash"] and not y["crash"]][:20])
     print(f"  replay: {out['replay']}  reactive: {out['reactive']}  both: {both}")
     save("replay", out)
 
@@ -192,7 +204,10 @@ def step_mc(a, nat, seeds):
     for r in res:
         if r["crash"]:
             by[r["mode"]] = by.get(r["mode"], 0) + 1
-    out = dict(n=a.mc_n, crashes=k, p=k / a.mc_n, lo=lo, hi=hi, modes=by, infeasible=int((~feas).sum()), seconds=time.time() - t)
+    per = {m: dict(k=by.get(m, 0), lo=estimate.wilson_ci(by.get(m, 0), a.mc_n)[0], hi=estimate.wilson_ci(by.get(m, 0), a.mc_n)[1])
+           for m in MODES + ["other"]}       # every mode, seen or not: an unseen one is reported by its upper bound
+    out = dict(n=a.mc_n, crashes=k, p=k / a.mc_n, lo=lo, hi=hi, modes=by, per_mode=per, infeasible=int((~feas).sum()),
+               seconds=time.time() - t)
     print(f"  {k} crashes in {a.mc_n}: p = {k / a.mc_n:.2e}, 95% Wilson [{lo:.2e}, {hi:.2e}], modes {by}")
     save("mc", out)
 
@@ -231,6 +246,7 @@ def step_hunt(a, nat, seeds):
     for m in MODES:
         prop, info = hunt(m, nat, rng, a.iters, a.per_iter, cloud)
         out[m] = dict(proposal=prop_to_json(prop), **info)
+        print(f"  hunt {m:10s}: found {info.get('found')}  infeasible skipped {info.get('infeasible')}")
     save("hunt", out)
     with open(os.path.join(EVID, "cloud.json"), "w") as f:
         json.dump(cloud, f)
@@ -276,8 +292,10 @@ def step_estimate(a, nat, seeds):
         tot = sum(per[m]["p"] for m in MODES) + other["p"]
         se_o = math.sqrt(other["p"] * (1 - other["p"]) / n_o) if n_o else 0.0
         se = math.sqrt(sum(per[m]["se"] ** 2 for m in MODES) + se_o ** 2)
-        out.append(dict(seed=s, per=per, total=tot, lo=max(0.0, tot - 1.96 * se), hi=tot + 1.96 * se))
-        print(f"  seed {s}: total {tot:.2e} [{max(0, tot - 1.96 * se):.2e}, {tot + 1.96 * se:.2e}]  " +
+        # 0 "other" crashes in MC still leave up to other["hi"] of them: the total's upper end must carry that bound
+        hi_tot = tot + 1.96 * se + (other["hi"] if n_o and k_o == 0 else 0.0)
+        out.append(dict(seed=s, per=per, total=tot, lo=max(0.0, tot - 1.96 * se), hi=hi_tot))
+        print(f"  seed {s}: total {tot:.2e} [{max(0, tot - 1.96 * se):.2e}, {hi_tot:.2e}]  " +
               "  ".join(f"{m} {per[m]['p']:.1e} (hits {per[m]['hits']}, ess {per[m]['ess']:.0f})" for m in MODES))
     save("estimate", dict(seeds=out, other=other, budget=len(MODES) * (a.iters * a.per_iter + a.seeds * a.final_n)))
 
@@ -371,8 +389,10 @@ def step_fix(a, nat, seeds):
         btest = eval_policy(dict(core.POLICY), retarget({}, seeds["test"] + 31), nat,
                             np.random.default_rng(seeds["test"] + 999), a.fix_n, prog_test, test=True)
         out.update(chosen_test=test, baseline_test=btest)
-        print(f"  chosen {best['policy']}: TRAIN {best['fail']:.2e} -> TEST {test['fail']:.2e} "
-              f"(baseline TEST {btest['fail']:.2e}); progress {test['progress']:.1f} vs {btest['progress']:.1f} m")
+        print(f"  chosen {best['policy']} (picked on TRAIN: fail {best['fail']:.2e}). Report these, from TEST:")
+        for nm, r in (("chosen", test), ("baseline", btest)):
+            print(f"    {nm:8s} TEST fail {r['fail']:.2e}  fail_hi_seen {r['fail_hi_seen']:.2e}  fail_hi (valid) {r['fail_hi']:.2e}"
+                  f"  unseen {r['unseen']}  progress {r['progress']:.1f} m")
     save("fix", out)
 
 
@@ -391,11 +411,16 @@ def mine_policy(doc, hz, ps, pol, chunk=400):
     low_speed (a flag, not a class): the ego was under 1 m/s at contact (hit while (nearly) stopped). Counted inside
     its class and also reported apart, because "it hit me while I waited" is a different story from "I hit it".
     """
-    out = dict(n=len(ps), crashes=0, avoidable=0, unavoidable=0, unattributed=0, low_speed=0, avoidable_foreknown=0, by_hazard={}, examples=[])
+    out = dict(n=len(ps), crashes=0, avoidable=0, unavoidable=0, unattributed=0, low_speed=0, avoidable_foreknown=0,
+               overlap_at_start=0, by_hazard={}, examples=[])
     for c0 in range(0, len(ps), chunk):
         sub = ps[c0:c0 + chunk]
         R = core.rollout(sub, policy=[pol] * len(sub), hazards=hz)
-        hit = np.array([bool(_ego_hits(R, k)) for k in range(R.K)])
+        # a hazard placed inside another actor (a bike inside the parked bus) touches it at frame 0: not a real scene
+        start = np.array([any(e["f"] == 0 and (e["a"].startswith("H") or e["b"].startswith("H")) for e in R.events[k]) for k in range(R.K)])
+        out["overlap_at_start"] += int(start.sum())
+        out["n"] -= int(start.sum())
+        hit = np.array([bool(_ego_hits(R, k)) and not start[k] for k in range(R.K)])
         if not hit.any():
             continue
         ff = studio.fire_frames(R, sub)
@@ -413,7 +438,9 @@ def mine_policy(doc, hz, ps, pol, chunk=400):
             out["avoidable_foreknown"] += bool(b >= 0 and avoid_fk[k])
             if len(out["examples"]) < 12:
                 out["examples"].append(dict(params=sub[k], kind=kind, low_speed=v_ego < 1.0, other=e["b"] if e["a"] == "ego" else e["a"],
-                                            t=e["t"], v_ego=v_ego, fire_t=float(f0[k] * core.DT) if f0[k] >= 0 else None))
+                                            t=e["t"], v_ego=v_ego,
+                                            fire_t=float(ff[k, b] * core.DT) if b >= 0 and ff[k, b] >= 0 else None,   # hazard started
+                                            brake_t=float(f0[k] * core.DT) if f0[k] >= 0 else None))                # oracle brakes (first visible)
     lo, hi = estimate.wilson_ci(out["avoidable"], out["n"])
     out.update(p=out["avoidable"] / max(1, out["n"]), lo=lo, hi=hi)
     return out
@@ -423,7 +450,12 @@ def step_mine(a, nat, seeds):
     """G. Your own hazard (saved from the viewer's chapter 10): replay the exact scene, then sweep it over its ranges
     in your town's traffic and count the collisions a planner should have avoided."""
     path = a.hazard if os.path.isabs(a.hazard) else os.path.join(HERE, a.hazard)
-    doc = studio.load(path)
+    if not os.path.exists(path):
+        sys.exit(f"{a.hazard} not found: save it from the viewer's chapter 10 into this folder (README step G).")
+    try:
+        doc = studio.load(path)
+    except ValueError as e:
+        sys.exit(f"hazard file: {e}")
     hz = doc["hazards"]
     pol_scene = dict(doc.get("policy") or {})
     if not studio.hazard_ok(hz, doc["params"]):
@@ -435,6 +467,9 @@ def step_mine(a, nat, seeds):
         Rs = core.rollout(doc["params"], policy=pol_scene, ego="script", ego_acc=np.array(doc["egoAcc"], float), hazards=hz)
         exact["you"] = [(e["a"], e["b"], e["t"]) for e in Rs.events[0]]
     print(f"  the scene from the viewer: planner {exact['planner'] or 'no collision'}" + (f"; you {exact['you'] or 'no collision'}" if "you" in exact else ""))
+    ex = doc.get("exposure")
+    if ex is not None and not (isinstance(ex, (int, float)) and 0 < ex <= 1):
+        sys.exit(f"hazard.json exposure = {ex!r}: it is how often this situation happens per trip, a number in (0, 1].")
     bad = studio.check_space(doc)
     if bad:
         sys.exit("hazard.json space:\n  " + "\n  ".join(bad))
@@ -460,7 +495,7 @@ def step_mine(a, nat, seeds):
         out[name] = r
         print(f"  {name:8s}: {r['crashes']} ego collisions = {r['avoidable']} avoidable by a full brake + {r['unavoidable']} unavoidable + "
               f"{r['unattributed']} unattributed ({r['low_speed']} at < 1 m/s);  P(planner failure | hazard) = {r['p']:.2e} [{r['lo']:.2e}, {r['hi']:.2e}]")
-        if doc.get("exposure"):
+        if doc.get("exposure") and doc.get("world") != "scene":     # one scene's rate is not a per-trip rate
             r["per_trip"] = doc["exposure"] * r["p"]
             r["per_trip_hi"] = doc["exposure"] * r["hi"]
             print(f"            x exposure {doc['exposure']:g} per trip = {r['per_trip']:.2e} per trip (upper {r['per_trip_hi']:.2e})")
@@ -479,6 +514,11 @@ def step_export(a, nat, seeds):
         for j, c in enumerate(got):
             runs.append(dict(id=f"{m[:1].upper()}-{j + 1:02d}", label=m, outcome="crash", params=c["params"],
                              policy=dict(core.POLICY)))      # found under the baseline: replay it so; the fix is the ghost
+    if os.path.exists(os.path.join(EVID, "replay.json")):
+        for j, r in enumerate(load("replay").get("replay_only", [])[:3]):
+            if isinstance(r, dict):
+                runs.append(dict(id=f"R-{j + 1:02d}", label="replay", outcome="crash", others="replay", params=r["params"],
+                                 policy=dict(core.POLICY)))
     if os.path.exists(os.path.join(EVID, "mine.json")):
         mn = load("mine")
         for name in ("baseline", "chosen"):
@@ -518,12 +558,24 @@ def main():
     hz_file = a.hazard if os.path.isabs(a.hazard) else os.path.join(HERE, a.hazard)
     steps = (["world", "replay", "mc", "hunt", "estimate", "fix"] + (["mine"] if os.path.exists(hz_file) else []) + ["export"]
              if a.step == "all" else [a.step])
-    save("meta", dict(seeds=seeds))
+    # meta.json keeps a history: one line per step ever run here, so a later single step cannot hide how the rest ran
+    old = load("meta") if os.path.exists(os.path.join(EVID, "meta.json")) else {}
+    hist = old.get("steps", {}) if old.get("seeds") == seeds else {}
+    hist.update({st: dict(quick=a.quick, at=time.strftime("%Y-%m-%d %H:%M")) for st in steps})
+    save("meta", dict(seeds=seeds, steps=hist))
+    if a.quick:
+        print("  --quick: tiny budgets, numbers too thin to mean anything (0 crashes, unseen modes, top_share 1). "
+              "Fine for debugging; NOT for evidence/ you submit (RUBRIC: part D = 0).")
+    if a.step == "all" and "mine" not in steps:
+        print(f"  (no {a.hazard} yet: step G skipped; run `python run_all.py mine {a.hazard}` once you have it)")
     for st in steps:
         t = time.time()
         print(f"[{st}]")
         fn = globals()["step_" + st]
-        fn(a) if st == "world" else fn(a, nat, seeds)
+        try:
+            fn(a) if st == "world" else fn(a, nat, seeds)
+        except NotImplementedError as e:      # a TODO this step needs is not done yet: say which, not a traceback
+            sys.exit(f"  step `{st}` needs {e}. Finish that TODO (python -m pytest -q tests/test_todos.py), then run it again.")
         print(f"  ({time.time() - t:.0f} s)")
 
 

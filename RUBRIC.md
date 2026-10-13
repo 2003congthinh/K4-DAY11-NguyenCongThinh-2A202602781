@@ -23,7 +23,7 @@ Grader chạy pipeline **tham chiếu** (lời giải của giảng viên) trên
 |---|---|
 | 3 | `replay.json`: số va chạm của "phát lại" và "phản ứng", theo loại tiếp xúc, bằng tham chiếu. |
 | 3 | `mc.json`: k, n và khoảng Wilson bằng tham chiếu (sai số 1e-9). |
-| 5 | `estimate.json`: `total` của từng seed trong khoảng ×1,05 quanh tham chiếu (4 điểm); `other` và `upper_zero_hits` bằng tham chiếu (1 điểm). |
+| 5 | `estimate.json`: trung vị `total` qua 3 seed trong khoảng ×1,5 quanh tham chiếu (4 điểm; cuộc săn hỗn loạn, nên code đúng nhưng làm tròn khác vẫn lệch vài chục %); `other` và `upper_zero_hits` bằng tham chiếu (1 điểm). |
 | 4 | `hunt.json`: cuộc săn `bus_bypass` và cuộc săn `dart_out` mỗi cuộc tìm được ít nhất một va chạm đúng kiểu của nó, như tham chiếu. |
 | 5 | `fix.json`: chạy lại với **seed TEST bí mật**: policy được chọn bằng tham chiếu, hoặc có `fail_hi` trên TEST không lớn hơn của lựa chọn tham chiếu và quãng đường giảm không quá 5 %. |
 
@@ -48,14 +48,16 @@ Grader chạy pipeline **tham chiếu** (lời giải của giảng viên) trên
 | 3 | `space` và `exposure` có căn cứ trong `why`; `space` hợp lệ và `accepted` ≥ 50 %; `mine.json` có ít nhất một va chạm `avoidable` với policy gốc, hoặc báo cáo giải thích vì sao rắc rối này planner đã xử lý tốt (cũng là một kết quả). |
 | 5 | Câu 9: so policy gốc với bản sửa bằng số; phân biệt `avoidable`, `unavoidable` và `unattributed`, và nói vì sao "tránh được" là chuẩn lạc quan; đề xuất cách sửa cụ thể (núm chỉnh, hoặc logic mới nếu không núm nào sửa được). |
 
-Rắc rối giống hệt của bạn cùng lớp (cùng loại, cùng khoảng, cùng `why`) chia đôi điểm phần G.
+Rắc rối giống hệt của bạn cùng lớp, hoặc chép nguyên ví dụ trong README (cùng loại, cùng khoảng `space`), chia đôi điểm phần G (sau khi áp trần).
+
+Câu 9, "tránh được là chuẩn lạc quan": người phanh biết rắc rối ngay khi thấy và phanh tối đa, nên `avoidable` **đếm nhiều hơn** số va chạm một planner thật tránh được (cận trên của lỗi planner theo nghĩa này), còn chỉ thử phanh (không đánh lái) làm nó đếm ít đi. Câu trả lời đầy đủ nói được cả hai hướng.
 
 ## D · Trung thực (10)
 
 | Điểm | Kiểm tra |
 |---|---|
 | 5 | `evidence/` bạn nộp khớp lần chạy lại (cùng seed, cùng số va chạm, cùng policy được chọn). |
-| 5 | Số trong `REPORT.md` khớp `evidence/` bạn nộp. |
+| 5 | Số trong `REPORT.md` khớp `evidence/` bạn nộp (trừ 1 điểm mỗi số sai hoặc trích sai file; số từ lần chạy thêm ngoài `evidence/` phải ghi rõ là vậy). |
 
 ## Trần điểm
 
