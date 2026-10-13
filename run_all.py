@@ -305,13 +305,14 @@ def eval_policy(pol, props, nat, rng, n, prog_params, test=False):
     """TRAIN (test=False) screens: a mode with zero hits is flagged `unseen` and adds nothing, because these draws
     were aimed where ANOTHER policy fails. TEST (test=True) reports: an unseen mode adds its valid zero-hit bound."""
     row = dict(policy=pol, unseen=[])
-    p_tot, hi_tot = 0.0, 0.0
+    p_tot, hi_tot, hi_seen = 0.0, 0.0, 0.0
     for m in ("bus_bypass", "dart_out"):
         est, _, _ = is_mode(m, props[m], nat, rng, n, pol=pol)
         row[m] = est
         p_tot += est["p"]
         if est["hits"] > 0:
             hi_tot += est["hi"]
+            hi_seen += est["hi"]
         elif test:
             hi_tot += est["upper_zero_hits"]
             row["unseen"].append(m)
@@ -328,8 +329,10 @@ def eval_policy(pol, props, nat, rng, n, prog_params, test=False):
     row["other_crashes"] = dict(k=k_other, n=len(pr), hi=hi_o)
     p_tot += k_other / max(1, len(pr))
     hi_tot += hi_o if (k_other > 0 or test) else 0.0
+    hi_seen += hi_o if k_other > 0 else 0.0
     row["fail"] = p_tot
-    row["fail_hi"] = hi_tot      # sum of per-mode upper bounds (TRAIN: over the modes actually seen)
+    row["fail_hi"] = hi_tot      # TRAIN: over the modes actually seen. TEST: a valid 95% bound, including unseen modes
+    row["fail_hi_seen"] = hi_seen    # only the modes with hits: what the data show, NOT a bound on the policy
     row["progress"] = float(np.mean([r["dist"] for r in pr]))       # distance up to a crash, not past it
     row["harsh"] = float(np.mean([r["harsh"] for r in pr]))
     return row
@@ -359,7 +362,9 @@ def step_fix(a, nat, seeds):
             return {m: hunt(m, nat, rng, a.iters, a.per_iter, None, pol)[0] if m in ("bus_bypass", "dart_out") else props[m]
                     for m in MODES}
         print("  re-hunting under the chosen policy and the baseline for the TEST estimate ...")
-        Zt, Bt = nat.sample(a.progress_n, np.random.default_rng(seeds["test"] + 8))     # a progress holdout TRAIN never saw
+        # A natural holdout TRAIN never saw, for progress and for every crash outside the hunted modes. Bigger than
+        # TRAIN's: with 0 such crashes in n runs the bound is about 3/n, so n must be in the thousands to say anything.
+        Zt, Bt = nat.sample(a.mc_n, np.random.default_rng(seeds["test"] + 8))
         prog_test = space.to_params(Zt, Bt, nat)
         test = eval_policy(best["policy"], retarget(best["policy"], seeds["test"] + 31), nat,
                            np.random.default_rng(seeds["test"] + 999), a.fix_n, prog_test, test=True)
