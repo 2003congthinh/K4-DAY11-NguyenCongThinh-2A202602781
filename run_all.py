@@ -30,7 +30,7 @@ from lab11 import estimate, feasible, metrics, modes, policy, search
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 EVID = os.path.join(HERE, "evidence")
-MODES = ["bus_bypass", "cut_in", "dart_out", "rear_ended"]
+MODES = ["bus_bypass", "cut_in", "crosswalk_block", "rear_ended"]
 BETA = 0.2
 
 
@@ -118,7 +118,7 @@ def danger(R, mode):
         s = -metrics.pair_min_ttc(R, "ego", "C2", lat_max=3.2)
     elif mode == "cut_in":
         s = -metrics.pair_min_ttc(R, "ego", "C2", lat_max=3.2, leader_vmin=6.0)
-    elif mode == "dart_out":
+    elif mode == "crosswalk_block":
         s = -metrics.ped_room(R)
     elif mode == "rear_ended":
         s = -metrics.pair_min_ttc(R, "TG", "ego")
@@ -324,7 +324,7 @@ def eval_policy(pol, props, nat, rng, n, prog_params, test=False):
     were aimed where ANOTHER policy fails. TEST (test=True) reports: an unseen mode adds its valid zero-hit bound."""
     row = dict(policy=pol, unseen=[])
     p_tot, hi_tot, hi_seen = 0.0, 0.0, 0.0
-    for m in ("bus_bypass", "dart_out"):
+    for m in ("bus_bypass", "crosswalk_block"):
         est, _, _ = is_mode(m, props[m], nat, rng, n, pol=pol)
         row[m] = est
         p_tot += est["p"]
@@ -342,7 +342,7 @@ def eval_policy(pol, props, nat, rng, n, prog_params, test=False):
     # Every OTHER ego collision (cut-in, rear-end, "other"), counted on the natural progress draws: a policy that
     # moves its failures into modes nobody hunts must not look safe.
     pr, _ = simulate(prog_params, pol=pol)
-    k_other = sum(1 for r in pr if r["crash"] and r["mode"] not in ("bus_bypass", "dart_out"))
+    k_other = sum(1 for r in pr if r["crash"] and r["mode"] not in ("bus_bypass", "crosswalk_block"))
     lo_o, hi_o = estimate.wilson_ci(k_other, len(pr))
     row["other_crashes"] = dict(k=k_other, n=len(pr), hi=hi_o)
     p_tot += k_other / max(1, len(pr))
@@ -377,7 +377,7 @@ def step_fix(a, nat, seeds):
         # another policy fails, and then one heavy weight decides the number (see top_share).
         def retarget(pol, seed):
             rng = np.random.default_rng(seed)
-            return {m: hunt(m, nat, rng, a.iters, a.per_iter, None, pol)[0] if m in ("bus_bypass", "dart_out") else props[m]
+            return {m: hunt(m, nat, rng, a.iters, a.per_iter, None, pol)[0] if m in ("bus_bypass", "crosswalk_block") else props[m]
                     for m in MODES}
         print("  re-hunting under the chosen policy and the baseline for the TEST estimate ...")
         # A natural holdout TRAIN never saw, for progress and for every crash outside the hunted modes. Bigger than

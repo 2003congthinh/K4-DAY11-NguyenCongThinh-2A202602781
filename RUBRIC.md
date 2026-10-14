@@ -24,7 +24,7 @@ Grader chạy pipeline **tham chiếu** (lời giải của giảng viên) trên
 | 3 | `replay.json`: số va chạm của "phát lại" và "phản ứng", theo loại tiếp xúc, bằng tham chiếu. |
 | 3 | `mc.json`: k, n và khoảng Wilson bằng tham chiếu (sai số 1e-9). |
 | 5 | `estimate.json`: trung vị `total` qua 3 seed trong khoảng ×1,5 quanh tham chiếu (4 điểm; cuộc săn hỗn loạn, nên code đúng nhưng làm tròn khác vẫn lệch vài chục %); `other` và `upper_zero_hits` bằng tham chiếu (1 điểm). |
-| 4 | `hunt.json`: cuộc săn `bus_bypass` và cuộc săn `dart_out` mỗi cuộc tìm được ít nhất một va chạm đúng kiểu của nó, như tham chiếu. |
+| 4 | `hunt.json`: cuộc săn `bus_bypass` và cuộc săn `crosswalk_block` mỗi cuộc tìm được ít nhất một thất bại đúng kiểu của nó, như tham chiếu. |
 | 5 | `fix.json`: chạy lại với **seed TEST bí mật**: policy được chọn bằng tham chiếu, hoặc có `fail_hi` trên TEST không lớn hơn của lựa chọn tham chiếu và quãng đường giảm không quá 5 %. |
 
 ## C · Báo cáo câu 1–8 (30)

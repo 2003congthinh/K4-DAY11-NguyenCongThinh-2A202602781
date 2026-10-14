@@ -82,6 +82,7 @@ LANES = {
 CAR = (4.6, 1.9)
 BUS = (12.0, 2.55)
 PED = (0.6, 0.6)
+PED_LOOK = 0.5      # a walking pedestrian stops when a vehicle body is within this many metres ahead of its centre
 BIKE = (1.8, 0.7)
 
 # ---------------------------------------------------------------- scenario parameters and the ego policy
@@ -371,6 +372,8 @@ def rollout(params=None, policy=None, ego="planner", others="reactive", log: Rol
     keep = ~(PEDS[iu] & PEDS[ju])                    # pedestrians do not collide with each other
     iu, ju = iu[keep], ju[keep]
     hit_f = np.full((K, len(iu)), -1, dtype=int)     # frame of first contact per pair
+    pb = int(np.nonzero((iu == EGO) & (ju == P1))[0][0])   # the (ego, P1) pair: its event may be a crosswalk block
+    is_blk = np.zeros(K, dtype=bool)                 # (ego, P1) event is a block, not a contact
     reach = np.hypot(LEN / 2, WID / 2)
     reach2 = (reach[iu] + reach[ju]) ** 2
     lane_of = [a.lane for a in ACT]
@@ -400,6 +403,7 @@ def rollout(params=None, policy=None, ego="planner", others="reactive", log: Rol
             hx[:, rep_mask], hz[:, rep_mask] = L[:, rep_mask, 2], L[:, rep_mask, 3]
             v[:, rep_mask] = L[:, rep_mask, 4]
         acc = np.zeros((K, N))
+        blk_ego = np.zeros(K, dtype=bool)
 
         # pairwise frame: j relative to i
         rx = x[:, None, :] - x[:, :, None]
@@ -532,6 +536,15 @@ def rollout(params=None, policy=None, ego="planner", others="reactive", log: Rol
                 if i in walk_trig:
                     fire[:, walk_trig[i][2]] = np.where(newly, f, fire[:, walk_trig[i][2]])
                 v[:, i] = np.where(~np.isnan(started[:, i]), vw[:, i], 0.0)
+                # nobody walks into the side of a car: stop while a vehicle body fills the step ahead
+                px, pz = x[:, i] + hx[:, i] * PED_LOOK, z[:, i] + hz[:, i] * PED_LOOK
+                blocked = np.any(obb_overlap(px[:, None], pz[:, None], hx[:, i:i + 1], hz[:, i:i + 1], halfL[i], halfW[i],
+                                             x, z, hx, hz, halfL[None, :], halfW[None, :]) & veh[None, :], axis=1)
+                walking = v[:, i] > 0
+                v[:, i] = np.where(blocked, 0.0, v[:, i])
+                if i == P1:      # the ego's body stopped the pedestrian on the crosswalk: a failure in its own right
+                    blk_ego = obb_overlap(px, pz, hx[:, i], hz[:, i], halfL[i], halfW[i],
+                                          x[:, EGO], z[:, EGO], hx[:, EGO], hz[:, EGO], halfL[EGO], halfW[EGO]) & walking
                 continue
             held = np.zeros(K, dtype=bool)
             if a.ctl == "hold":
@@ -618,6 +631,9 @@ def rollout(params=None, policy=None, ego="planner", others="reactive", log: Rol
             ov = obb_overlap(x[kk, a_], z[kk, a_], hx[kk, a_], hz[kk, a_], halfL[a_], halfW[a_],
                              x[kk, b_], z[kk, b_], hx[kk, b_], hz[kk, b_], halfL[b_], halfW[b_])
             hit_f[kk[ov], pp[ov]] = f
+        nb = blk_ego & (hit_f[:, pb] < 0)            # a contact in the same frame wins over a block
+        hit_f[nb, pb] = f
+        is_blk |= nb
 
         if f < NF - 1:
             mv = ~rep_mask
@@ -633,7 +649,7 @@ def rollout(params=None, policy=None, ego="planner", others="reactive", log: Rol
             if fr[p] < 0:
                 break
             a, b, ff = iu[p], ju[p], fr[p]
-            ev.append(dict(t=float(round(ff * DT, 10)), f=int(ff), a=IDS[a], b=IDS[b],
+            ev.append(dict(t=float(round(ff * DT, 10)), f=int(ff), a=IDS[a], b=IDS[b], kind="block" if p == pb and is_blk[k] else "contact",
                            x=float((F[k, ff, a, 0] + F[k, ff, b, 0]) / 2), z=float((F[k, ff, a, 1] + F[k, ff, b, 1]) / 2),
                            fake=bool(replay and ((rep_mask[a]) or (rep_mask[b])))))
         events.append(ev)

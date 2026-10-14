@@ -18,6 +18,7 @@ Mọi thứ bạn tìm thấy bằng Python đều xem lại được trong **tr
 `avsim` là bản numpy của lõi mô phỏng trong trình xem 3D (`sim-core.js`). Một lần gọi chạy cả **batch** K kịch bản cùng lúc, khoảng 4 ms/kịch bản. `tests/test_parity.py` kiểm tra Python và JS cho cùng kết quả (cần `node`; không có thì test tự bỏ qua).
 
 - Các xe khác lái theo **IDM** và cư xử như người: xe chuyển làn chờ một khe đủ rộng (*gap acceptance*), dừng nhường người qua đường, rẽ phải thì nhường; người đi bộ chờ đến khi xe gần nhất mà họ **nhìn thấy** còn đủ xa. Chỉ xe buýt đủ cao để che tầm nhìn.
+- Người đi bộ **không bao giờ bước vào thân xe**: thân xe chắn ngay trước mặt thì họ đứng lại. Nếu xe ta dừng mà thân xe nằm trên vạch qua đường, chắn lối người đang qua, đó là một thất bại tính như va chạm: sự kiện `kind == "block"`, kiểu `crosswalk_block` (planner phanh quá muộn). Va chạm thật có `kind == "contact"`.
 - **Xe ta (ego)** chạy một planner có 9 núm chỉnh (`avsim.POLICY`): IDM (`v0, T, a, b, s0`), tốc độ thận trọng gần vạch bị che (`cautionV`, `cautionRange`), biên an toàn khi dự đoán người đi bộ (`pedBuffer`), và ngưỡng ngang để coi một xe đang lấn sang là xe phía trước (`cutinLat`).
 - Mỗi kịch bản là một **vector ẩn u**: 11 toạ độ liên tục chuẩn tắc N(0, 1) và 3 toạ độ bật/tắt (đường ướt, người đi bộ có ngó qua xe buýt không, xe chuyển làn có phanh ngay sau khi vào làn không). `space.to_params` đổi u thành tham số mô phỏng. **Phân phối tự nhiên** p(u) của thị trấn bạn suy ra từ MSSV (một trong 4 thị trấn A–D).
 
@@ -70,7 +71,7 @@ Ba cái bẫy bạn sẽ gặp và phải báo cáo:
 
 1. CEM **co về một kiểu**: săn mãi một chỗ. Vì thế mỗi kiểu có một cuộc săn riêng.
 2. Săn càng lâu, q càng hẹp. Ước lượng vẫn không chệch về lý thuyết, nhưng thường bị **thấp**: một vài mẫu nặng ký quyết định cả con số. `top_share` (phần ước lượng do một mẫu nặng nhất mang) cho bạn biết khi nào điều đó xảy ra. Vì vậy ước lượng dùng **đề xuất đầu tiên** mà elite đã toàn là va chạm. Kể cả vậy, ở ngân sách này con số thường thấp hơn sự thật khoảng 1,5–4 lần, và các seed có thể chênh nhau vài lần.
-3. Cuộc săn tìm ra **một** cách va chạm, không nhất thiết là cách **hay xảy ra nhất**. Điểm nguy hiểm kéo q về chỗ va chạm dễ nhất, và chỗ đó có thể rất hiếm ngoài đời. Nếu hai seed cho dart-out chênh nhau hàng chục lần, hoặc Monte Carlo thấy một vụ mà IS bảo cỡ 10⁻⁶, đó là dấu hiệu.
+3. Cuộc săn tìm ra **một** cách va chạm, không nhất thiết là cách **hay xảy ra nhất**. Điểm nguy hiểm kéo q về chỗ va chạm dễ nhất, và chỗ đó có thể rất hiếm ngoài đời. Nếu hai seed cho `crosswalk_block` chênh nhau hàng chục lần, hoặc Monte Carlo thấy một vụ mà IS bảo cỡ 10⁻⁶, đó là dấu hiệu.
 
 ### E · Sửa planner, kiểm tra trung thực
 
@@ -98,9 +99,9 @@ Gợi ý: không phải núm nào "an toàn hơn" cũng an toàn hơn. Thế gi�
 - danh sách bên dưới là các va chạm bạn lưu theo từng kiểu;
 - **bóng mờ** là xe ta với policy gốc trên cùng kịch bản, để thấy bản sửa của bạn thay đổi gì.
 
-Chụp màn hình cho báo cáo (câu 5, câu 6), như ảnh dưới: kéo thanh thời gian đến đúng lúc va chạm rồi mới chụp.
+Chụp màn hình cho báo cáo (câu 5, câu 6), như ảnh dưới: kéo thanh thời gian đến đúng lúc va chạm (hoặc lúc chặn lối) rồi mới chụp.
 
-![Chương 9: kiểu "người lao ra": người đi bộ bước ra từ sau xe buýt đỗ; xe ta phanh gấp và dừng, nhưng mũi xe đã nằm trên lối đi của người](images/ch9-lab-dart-out.jpg)
+![Chương 9: kiểu "chặn lối người đi bộ": người đi bộ bước ra từ sau xe buýt đỗ; xe ta phanh gấp và dừng, nhưng thân xe đã nằm trên vạch qua đường, người phải đứng lại](images/ch9-lab-crosswalk-block.jpg)
 
 ### G · Rắc rối của bạn (xưởng kịch bản, chương 10)
 

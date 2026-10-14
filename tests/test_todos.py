@@ -192,7 +192,7 @@ def _crash(other, f=40, c2=(100.0, 3.0)):
 
 def test_label_mode_cases():
     R, e = _crash("P1")
-    assert modes.label_mode(R, 0, e, metrics.contact_type) == "dart_out"
+    assert modes.label_mode(R, 0, e, metrics.contact_type) == "crosswalk_block"
     R, e = _crash("TG")
     assert modes.label_mode(R, 0, e, metrics.contact_type) == "rear_ended"
     R, e = _crash("C2", c2=(104.5, 3.0))

@@ -37,8 +37,8 @@ def _compare(R, js, tol=2e-3):
         if "EGO" in J:          # planner state (mode, v0, sees-ped, leader): discrete, so it must match exactly
             Ej = np.array(J["EGO"], dtype=np.float32).reshape(core.NF, 4)
             err = max(err, 10 * float(np.abs(R.EGO[k] - Ej).max()))
-        ej = [(e["a"], e["b"], e["f"]) for e in J["events"]]
-        ep = [(e["a"], e["b"], e["f"]) for e in R.events[k]]
+        ej = [(e["a"], e["b"], e["f"], e["kind"]) for e in J["events"]]
+        ep = [(e["a"], e["b"], e["f"], e["kind"]) for e in R.events[k]]
         if err > tol or ej != ep:
             bad.append((k, float(err), ej, ep))
     return bad
@@ -131,3 +131,24 @@ def test_brake_from_keeps_prefix_identical():
         assert np.array_equal(R.F[k, :upto], O.F[k, :upto])
         if 0 <= f < core.NF - 1 and O.F[k, f, core.EGO, 4] > 0:
             assert np.isclose(O.F[k, f, core.EGO, 5], -min(9.0, O.params["mu"][k] * core.G), atol=1e-4)
+
+
+# wet road, a pedestrian who does not peek past the bus: the planner stops with its nose over the crosswalk
+BLOCKS = [
+    {'cutT0': 7.6024, 'cutDur': 4.9515, 'cutV': 12.2896, 'cutDs': -1.3756, 'pedT0': 14.5161, 'pedV': 0.9015, 'busGo': 12.1112, 'tgT': 1.08, 'cutGap': 28.4059, 'pedGap': 2.552, 'mu': 0.5, 'pedLook': 0.0, 'cutBrake': 0.0, 'civil': True},
+    {'cutT0': 2.047, 'cutDur': 4.2911, 'cutV': 11.0264, 'cutDs': -8.9041, 'pedT0': 14.7874, 'pedV': 0.785, 'busGo': 12.2008, 'tgT': 0.7814, 'cutGap': 26.0303, 'pedGap': 2.2003, 'mu': 0.5, 'pedLook': 0.0, 'cutBrake': 0.0, 'civil': True},
+    {'cutT0': 7.0633, 'cutDur': 4.1274, 'cutV': 12.6183, 'cutDs': -6.8112, 'pedT0': 14.3808, 'pedV': 0.984, 'busGo': 12.0739, 'tgT': 0.7817, 'cutGap': 20.4301, 'pedGap': 2.7065, 'mu': 0.5, 'pedLook': 0.0, 'cutBrake': 0.0, 'civil': True},
+    {'cutT0': 3.5475, 'cutDur': 3.5493, 'cutV': 11.7116, 'cutDs': -10.7018, 'pedT0': 14.6611, 'pedV': 0.8954, 'busGo': 12.1618, 'tgT': 0.6317, 'cutGap': 18.8476, 'pedGap': 2.313, 'mu': 0.5, 'pedLook': 0.0, 'cutBrake': 0.0, 'civil': True},
+]
+
+
+def test_crosswalk_block_matches():
+    """A pedestrian never walks into a car body; the ego stopping on the crosswalk in its way is a 'block' event."""
+    js = _js([dict(params=p, ego="planner", others="reactive") for p in BLOCKS])
+    R = core.rollout(BLOCKS)
+    assert not _compare(R, js)
+    for k in range(R.K):
+        ev = [e for e in R.events[k] if "ego" in (e["a"], e["b"])]
+        assert ev and ev[0]["b"] == "P1" and ev[0]["kind"] == "block", ev
+        p1 = R.F[k, ev[0]["f"]:, core.IX["P1"]]
+        assert np.all(p1[:, 4] == 0) or np.argmax(p1[:, 4] > 0) > 0      # the pedestrian waits instead of walking on
