@@ -170,7 +170,28 @@ Nếu thêm một tuần: (a) tăng ngân sách IS và chạy nhiều cuộc să
 
 ![người băng ngang](evidence/shots/q9_mine_jaywalker.png)
 
-- **Bạn tự lái thì sao:** tôi chưa ghi lại lượt tự lái trong chương 10 (`hazard.json` không có `egoAcc`, nên `mine.json: exact` chỉ có `planner`). Theo oracle thì người lái phanh ngay khi thấy người bước xuống lề là tránh được (119/120 vụ). Lợi thế của người lái là nhìn thấy người đứng ở mép đường và **đoán** họ sắp băng qua, điều planner không làm.
+- **Bạn tự lái thì sao:** tôi lái thử 4 lần trong chương 10 và lưu lần cuối (`hazard.json: "ego": "script"`, `egoAcc`). Kết quả `mine.json: exact` = `{"planner": [["ego", "H0", 20.85]], "you": []}`: **tôi không va chạm**, planner thì đâm vào người băng ngang lúc 20,85 s trên đúng cảnh đó.
+
+![tôi lái (xe đặc) trên cảnh của mine](evidence/shots/q9_you_drive_saved.png)
+
+*(Lần lái đã lưu, chương 10, t = 18,0 s: người băng ngang đang đi qua làn của tôi, tôi đang ở 18 km/h; readout: "bạn lái: không va chạm", "planner, cùng thế giới: va chạm người băng ngang · 20,9 s".)*
+
+  Chuỗi sự kiện (tôi chạy lại `egoAcc` bằng avsim để lấy số):
+
+  | | lúc người bắt đầu bước (t = 15,30 s) | lúc người vào làn xe ta | kết quả |
+  |---|---|---|---|
+  | **tôi** | cách 27,3 m, 11,0 m/s; tôi phanh lúc t = 16,20 s (sau 0,9 s) | t = 17,55 s, tôi còn cách 7,8 m, chỉ còn 4,7 m/s | người qua khỏi làn trước khi tôi tới, tôi đi tiếp phía sau họ |
+  | **planner** | (người bắt đầu bước lúc t = 18,35 s, khi planner cách 27,6 m, 10,5 m/s) | t = 20,60 s, planner còn cách 2,8 m mà vẫn chạy 11,4 m/s | va chạm lúc 20,85 s |
+
+  Khác biệt chính là **lúc bắt đầu phản ứng**. Tôi phanh vì thấy một người đang đi về phía lòng đường ở chỗ không có vạch qua đường cũng không có đèn, nên đoán đó là người định băng ngang. Planner thì không làm gì cho tới khi người đó đã nằm trong làn của nó (|lat| ≤ 1,9 m), lúc đó đã quá gần để dừng. Tôi định dừng hẳn, nhưng khi xe gần dừng thì người đã đi qua, nên tôi nhấn ga đi tiếp (tốc độ thấp nhất 4,7 m/s).
+
+  So sánh này **thiên về tôi**, nên không thể nói "người lái giỏi hơn planner":
+  - tôi đã thử 4 lần, nên lần lưu lại tôi biết trước người băng ngang sẽ xuất hiện ở đâu và lúc nào; planner thì không biết trước;
+  - tôi chỉ có một kịch bản, còn planner được đo trên 1 492 phiên bản.
+
+  Ngoài ra tôi lái không giống planner: tôi tăng tốc lên tới 17,2 m/s (~62 km/h, planner giới hạn 12 m/s) vì thấy khoảng trống phía trước còn nhiều, rồi phải phanh 4 lần ngắn lúc 6,9–9,9 s khi tới gần giao lộ và vạch qua đường. Chỗ tôi đi trội hơn planner chỉ là đoạn cuối: phản ứng với một người **sắp** băng qua, không đợi người đó vào làn.
+
+  *(Ảnh `evidence/shots/q9_you_drive.png` là từ một lần thử khác, lần tôi dừng hẳn ở 0 km/h; nó không phải lần đã lưu trong `hazard.json`.)*
 - **Cách sửa:** không núm nào trong `POLICY` sửa được, như kết quả ở trên cho thấy. `pedBuffer` và `cautionV` chỉ áp dụng cho P1 ở vạch; `T` không có tác dụng vì người đi bộ là vật cản đứng yên; giảm `v0` chỉ giảm nhẹ và tốn quãng đường. Planner cần thêm **logic mới**: áp dụng phép dự đoán đang dùng cho P1 cho **mọi** người đi bộ đang ở trên mặt đường, kể cả ngoài vạch.
   - Ước lượng thời điểm người đó vào hành lang của xe ta: t_enter = khoảng cách ngang / tốc độ ngang.
   - So với thời điểm xe ta tới chỗ đó: t_arrive = khoảng cách dọc / v.
@@ -178,5 +199,3 @@ Nếu thêm một tuần: (a) tăng ngân sách IS và chạy nhiều cuộc să
   - Thêm một tốc độ thận trọng khi có người đứng sát mép đường trong phạm vi vài chục mét phía trước.
 
 ---
-
-*Ghi chú về công cụ: tôi tự làm bài; Claude (AI) được dùng để hỗ trợ kiểm lỗi code, chạy thử pipeline và kiểm tra lại các con số trong báo cáo.*
