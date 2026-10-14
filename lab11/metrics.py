@@ -10,7 +10,10 @@ HALF_EGO = core.CAR[0] / 2   # 2.3 m: half the ego's length
 
 
 def ego_events(R: core.Rollout, k: int) -> list[dict]:
-    """Collisions involving the ego in scenario k, earliest first (given)."""
+    """Failure events involving the ego in scenario k, earliest first (given).
+
+    event["kind"] is "contact" (the boxes touched) or "block" (the ego's body stopped the pedestrian P1 on the
+    crosswalk: pedestrians never walk into a car, so this is how a planner that stops too late fails them)."""
     return [e for e in R.events[k] if e["a"] == "ego" or e["b"] == "ego"]
 
 

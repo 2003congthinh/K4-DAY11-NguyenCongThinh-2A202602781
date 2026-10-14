@@ -5,9 +5,10 @@ from avsim import core
 
 
 def label_mode(R: core.Rollout, k: int, event: dict, contact_type) -> str:
-    """TODO 8. Name the kind of failure behind one ego collision. Return one of:
+    """TODO 8. Name the kind of failure behind one ego failure event (a collision, or a crosswalk block). Return one of:
 
-      'dart_out'   - the ego hit the crossing pedestrian P1
+      'crosswalk_block' - the other party is the crossing pedestrian P1: the ego stopped with its body on the
+                        crosswalk in P1's way (event["kind"] == "block"), or hit P1
       'rear_ended' - something ran into the ego from behind (use contact_type(R, k, event) == 'rear')
       'bus_bypass' - the ego hit C2 while C2 was squeezing past the stopped bus: at contact C2 is at x < 112 m
                      and slower than 6 m/s

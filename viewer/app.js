@@ -584,10 +584,11 @@
 
   // ---------------------------------------------------------------- collision markers
   var hitRings = [];
+  function evWord(ev) { return ev.kind === "block" ? "chặn lối" : "va chạm"; }     // a block: the ego stopped on the crosswalk in a pedestrian's way
   function rebuildHits() {
     hitRings.forEach(function (o) { scene.remove(o); }); hitRings = [];
     R.events.forEach(function (ev) {
-      var m = new T.Mesh(new T.TorusGeometry(2.6, 0.12, 8, 40).rotateX(Math.PI / 2), mat("red", { transparent: true, opacity: 0.9 }, T.MeshBasicMaterial));
+      var m = new T.Mesh(new T.TorusGeometry(2.6, 0.12, 8, 40).rotateX(Math.PI / 2), mat(ev.kind === "block" ? "gold" : "red", { transparent: true, opacity: 0.9 }, T.MeshBasicMaterial));
       m.position.set(ev.x, 0.3, ev.z); m.userData.ev = ev; m.visible = false; scene.add(m); hitRings.push(m);
     });
     drawTicks();
@@ -937,7 +938,7 @@
 
   // ---------------------------------------------------------------- chapter 9: the lab's own runs, re-simulated here
   var LAB = { data: null, src: "", cur: null, ghost: null, sel: -1, xi: 0, yi: 1 };
-  var LAB_LABEL = { bus_bypass: "lách qua xe buýt", cut_in: "cắt làn gấp", dart_out: "người lao ra", rear_ended: "bị tông đuôi", other: "khác", mine: "rắc rối của bạn", replay: "chỉ va chạm khi phát lại log" };
+  var LAB_LABEL = { bus_bypass: "lách qua xe buýt", cut_in: "cắt làn gấp", crosswalk_block: "chặn lối người đi bộ", rear_ended: "bị tông đuôi", other: "khác", mine: "rắc rối của bạn", replay: "chỉ va chạm khi phát lại log" };
   var LAB_OUT = { crash: "red", near: "gold", safe: "grey", infeasible: "grey" };
   function labValidate(d) {
     if (!d || d.format !== "avsim-viewer/1") throw new Error("File không phải avsim-viewer/1 (thiếu trường format).");
@@ -975,8 +976,8 @@
     var g = LAB.ghost.events.filter(function (e) { return e.a === "ego" || e.b === "ego"; })[0];
     function row(k, v) { return "<span>" + k + "</span><b>" + v + "</b>"; }
     el.innerHTML = row("kiểu", c.label ? (LAB_LABEL[c.label] || c.label) : "–") +
-      row("chính sách của bạn", ev ? '<span class="c-red">va chạm ' + who(ev.a === "ego" ? ev.b : ev.a) + " " + fmt(ev.t) + " s</span>" : '<span class="c-green">không va chạm</span>') +
-      row("chính sách gốc", g ? "va chạm " + fmt(g.t) + " s" : "không va chạm") +
+      row("chính sách của bạn", ev ? '<span class="c-red">' + evWord(ev) + ' ' + who(ev.a === "ego" ? ev.b : ev.a) + " " + fmt(ev.t) + " s</span>" : '<span class="c-green">không va chạm</span>') +
+      row("chính sách gốc", g ? evWord(g) + " " + fmt(g.t) + " s" : "không va chạm") +
       row("mặt đường", p.mu < 0.65 ? "ướt (μ " + fmt(p.mu, 1) + ")" : "khô") +
       row("khe chấp nhận khi cắt làn", p.cutGap == null ? "–" : fmt(p.cutGap) + " m") +
       row("người đi bộ ngó qua xe buýt", p.pedLook ? "có" : "không") +
@@ -1203,8 +1204,8 @@
     function row(k, v) { return "<span>" + k + "</span><b>" + v + "</b>"; }
     var me = stuEgoEvents(STU.R)[0], gh = stuEgoEvents(STU.ghost)[0], others = STU.R.events.filter(function (e) { return e.a !== "ego" && e.b !== "ego"; });
     var ep = pose(STU.R, EGO_I, t), hz = STU.R.actors.filter(function (a) { return a.hz != null; }).length;
-    el.innerHTML = row(STU.drive ? "bạn lái" : "planner", me ? '<span class="c-red">va chạm ' + who(me.a === "ego" ? me.b : me.a) + " · " + fmt(me.t) + " s</span>" : '<span class="c-green">không va chạm</span>') +
-      row(STU.drive ? "planner, cùng thế giới" : "planner gốc", gh ? "va chạm " + who(gh.a === "ego" ? gh.b : gh.a) + " · " + fmt(gh.t) + " s" : "không va chạm") +
+    el.innerHTML = row(STU.drive ? "bạn lái" : "planner", me ? '<span class="c-red">' + evWord(me) + ' ' + who(me.a === "ego" ? me.b : me.a) + " · " + fmt(me.t) + " s</span>" : '<span class="c-green">không va chạm</span>') +
+      row(STU.drive ? "planner, cùng thế giới" : "planner gốc", gh ? evWord(gh) + " " + who(gh.a === "ego" ? gh.b : gh.a) + " · " + fmt(gh.t) + " s" : "không va chạm") +
       row("va chạm giữa xe khác", others.length ? others.map(function (e) { return who(e.a) + "–" + who(e.b); }).slice(0, 3).join(", ") : "không") +
       row("tốc độ xe ta lúc này", fmt(ep.v * 3.6, 0) + " km/h") +
       row("rắc rối đang có", hz + STU.hazards.filter(function (h) { return h.type === "brake"; }).length + " / 4");
@@ -1248,7 +1249,7 @@
   $("camBtn").addEventListener("click", function () { setFollow(!rig.follow); });
   function drawTicks() {
     var tk = $("ticks"), h = "";
-    R.events.forEach(function (e) { h += '<i style="left:' + (100 * e.t / T_END) + '%;background:var(--red)" title="va chạm ' + fmt(e.t) + ' s"></i>'; });
+    R.events.forEach(function (e) { h += '<i style="left:' + (100 * e.t / T_END) + '%;background:var(--' + (e.kind === "block" ? "gold" : "red") + ')" title="' + evWord(e) + ' ' + fmt(e.t) + ' s"></i>'; });
     var p = R.params; h += '<i style="left:' + (100 * p.cutT0 / T_END) + '%;background:var(--purple)" title="bắt đầu cắt làn"></i>';
     h += '<i style="left:' + (100 * p.pedT0 / T_END) + '%;background:var(--gold)" title="người đi bộ bước xuống"></i>';
     tk.innerHTML = h;
@@ -1324,8 +1325,8 @@
     if (stGroup.visible) for (var sk = 1; sk <= 6; sk++) label(ego.x + 48, sk * stK + 0.3, ego.z, "t +" + sk + " s", "gt");
     if (stGroup.visible) buildST(t, R);
     // collisions
-    hitRings.forEach(function (m) { var ev = m.userData.ev, on = t >= ev.t && t < ev.t + 6; m.visible = on; if (on) { var s = 1 + 0.25 * Math.sin((t - ev.t) * 8); m.scale.set(s, s, s); label(ev.x, 3.2, ev.z, ev.fake ? "va chạm giả (phát lại)" : "va chạm", "hit"); } });
-    R.events.forEach(function (ev) { if (prevT < ev.t && t >= ev.t && st.playing) toast(ev.fake ? "Va chạm giả: xe bám đuôi phát lại theo log, không biết xe ta đã phanh sớm hơn." : "Va chạm: " + who(ev.a) + " và " + who(ev.b) + " lúc " + fmt(ev.t) + " s"); });
+    hitRings.forEach(function (m) { var ev = m.userData.ev, on = t >= ev.t && t < ev.t + 6; m.visible = on; if (on) { var s = 1 + 0.25 * Math.sin((t - ev.t) * 8); m.scale.set(s, s, s); label(ev.x, 3.2, ev.z, ev.fake ? "va chạm giả (phát lại)" : evWord(ev), "hit"); } });
+    R.events.forEach(function (ev) { if (prevT < ev.t && t >= ev.t && st.playing) toast(ev.fake ? "Va chạm giả: xe bám đuôi phát lại theo log, không biết xe ta đã phanh sớm hơn." : ev.kind === "block" ? "Chặn lối: xe ta dừng trên vạch qua đường, người đi bộ phải đứng lại lúc " + fmt(ev.t) + " s" : "Va chạm: " + who(ev.a) + " và " + who(ev.b) + " lúc " + fmt(ev.t) + " s"); });
     if (toastT && performance.now() > toastT) { $("toast").hidden = true; toastT = 0; }
     // variants
     varLines.visible = st.variants && !!VAR; updateGhosts(t);

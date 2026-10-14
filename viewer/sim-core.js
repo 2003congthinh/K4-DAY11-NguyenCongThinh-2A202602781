@@ -56,6 +56,7 @@
 
   // ------------------------------------------------------------------ actors
   var CAR = { len: 4.6, wid: 1.9 }, BUS = { len: 12, wid: 2.55 }, PED = { len: 0.6, wid: 0.6 };
+  var PED_LOOK = 0.5;   // a walking pedestrian stops when a vehicle body is within this many metres ahead of its centre
   function idm(o) { return Object.assign({ v0: 13, T: 1.4, a: 1.6, b: 2.2, s0: 2.0 }, o || {}); }
 
   /* Scenario parameters a chapter can change (all have defaults). */
@@ -175,7 +176,7 @@
     var pol = Object.assign({}, POLICY, opts.policy || {}), aMin = -Math.min(9, p.mu * G);
     var F = new Float32Array(NF * N * 7);    // per frame, per actor: x, z, hx, hz, v, a, d
     var EGO = new Float32Array(NF * 4);      // ego: plan state (0 cruise,1 follow,2 caution,3 stop-for-ped), v target, ped-visible, leader idx
-    var events = [], hit = {};
+    var events = [], hit = {}, egoI = A.findIndex(function (a) { return a.id === "ego"; });
     var log = opts.others === "replay" ? opts.log : null;
     var replayIdx = {};
     if (log) log.actors.forEach(function (a, i) { replayIdx[a.id] = i; });
@@ -287,7 +288,7 @@
     }
 
     for (var f = 0; f < NF; f++) {
-      var t = f * DT, sts = A.map(state), acc = new Array(N).fill(0);
+      var t = f * DT, sts = A.map(state), acc = new Array(N).fill(0), blkP1 = false;
       // replayed actors take their logged pose
       if (log) A.forEach(function (a, i) {
         if (a.id === "ego" || replayIdx[a.id] == null) return;
@@ -299,7 +300,13 @@
         if (log && a.id !== "ego" && replayIdx[a.id] != null) { acc[i] = log.F[(f * log.actors.length + replayIdx[a.id]) * 7 + 5]; continue; }
         if (a.ctl === "walk") {
           if (a.started == null && t >= a.t0 && (a.gap == null || pedGateOK(a, i, sts)) && (!a.trig || fired(a.trig, a.t0, t, sts))) a.started = t;
-          a.v = a.started != null ? a.vw : 0; continue;
+          a.v = a.started != null ? a.vw : 0;
+          if (a.v > 0) {      // nobody walks into the side of a car: stop while a vehicle body fills the step ahead
+            var probe = obb({ x: st.x + st.hx * PED_LOOK, z: st.z + st.hz * PED_LOOK, hx: st.hx, hz: st.hz }, a.dims);
+            for (var jb = 0; jb < N; jb++) if (A[jb].kind !== "ped" && overlap(probe, obb(sts[jb], A[jb].dims))) { a.v = 0; break; }
+            if (a.id === "P1" && overlap(probe, obb(sts[egoI], A[egoI].dims))) blkP1 = true;   // the ego's body stopped the pedestrian on the crosswalk
+          }
+          continue;
         }
         if (a.ctl === "hold" && t < a.until) { a.v = 0; continue; }
         if (a.ctl === "hold" && p.civil && a.kind === "bus" && !a.going) {         // the bus driver waits while someone is on the crosswalk ahead
@@ -376,9 +383,10 @@
         var b1 = A[u1], b2 = A[u2];
         if (b1.kind === "ped" && b2.kind === "ped") continue;
         var key = b1.id + "|" + b2.id; if (hit[key]) continue;
-        if (overlap(obb(sts[u1], b1.dims), obb(sts[u2], b2.dims))) {
+        var touch = overlap(obb(sts[u1], b1.dims), obb(sts[u2], b2.dims));
+        if (touch || (blkP1 && b1.id === "ego" && b2.id === "P1")) {      // a contact in the same frame wins over a block
           hit[key] = 1;
-          events.push({ t: t, f: f, a: b1.id, b: b2.id, x: (sts[u1].x + sts[u2].x) / 2, z: (sts[u1].z + sts[u2].z) / 2,
+          events.push({ t: t, f: f, a: b1.id, b: b2.id, kind: touch ? "contact" : "block", x: (sts[u1].x + sts[u2].x) / 2, z: (sts[u1].z + sts[u2].z) / 2,
                         fake: !!(log && (replayIdx[b1.id] != null && b1.id !== "ego" || replayIdx[b2.id] != null && b2.id !== "ego")) });
         }
       }
